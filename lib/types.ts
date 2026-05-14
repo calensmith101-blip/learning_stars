@@ -49,7 +49,7 @@ export type Question = {
   explanation: string;
   difficulty: number;
   strand: string;
-  interaction: "choose" | "fillBlank" | "wordTiles" | "numberTiles";
+  interaction: "choose" | "fillBlank" | "wordTiles" | "numberTiles" | "sentenceOrder" | "match" | "trueFalse";
 };
 
 export type SessionResult = {

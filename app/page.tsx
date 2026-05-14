@@ -56,6 +56,7 @@ export default function HomePage() {
   const progressPercent = getOverallProgressPercent(activeProfile);
   const boostText = getBoostCountdown(activeProfile, now);
   const boostActive = getBoostActive(activeProfile, now);
+  const interactionLabel = question.interaction === "fillBlank" ? "Fill the blank" : question.interaction === "wordTiles" ? "Word tiles" : question.interaction === "numberTiles" ? "Number tiles" : question.interaction === "sentenceOrder" ? "Build it" : question.interaction === "match" ? "Match it" : question.interaction === "trueFalse" ? "True or false" : "Choose";
 
   const updateProfile = (profileId: string, updater: (profile: LearnerProfile) => LearnerProfile) => {
     setState((current) => ({
@@ -181,10 +182,11 @@ export default function HomePage() {
             {boostActive ? <p className="boostNote">x{BOOST_MULTIPLIER} points active now.</p> : <p className="boostNote">Next boost in {getStarsToNextBoost(activeProfile)} stars.</p>}
           </div>
           <div className={`questionCard ${question.interaction}`}>
-            <div className="questionMeta"><span>Age {activeProfile.ageBand}</span><span>{question.strand}</span><span>Difficulty {question.difficulty}</span><span>{question.interaction === "fillBlank" ? "Fill the blank" : question.interaction === "wordTiles" ? "Word tiles" : question.interaction === "numberTiles" ? "Number tiles" : "Choose"}</span></div>
+            <div className="questionMeta"><span>Age {activeProfile.ageBand}</span><span>{question.strand}</span><span>Difficulty {question.difficulty}</span><span>{interactionLabel}</span></div>
             <h3>{question.prompt}</h3>
             {question.interaction === "fillBlank" ? <p className="activityHint">Tap the tile that best fills the blank.</p> : null}
-            {question.interaction === "wordTiles" || question.interaction === "numberTiles" ? <p className="activityHint">Pick the matching tile. The correct tile moves around each question.</p> : null}
+            {question.interaction === "wordTiles" || question.interaction === "numberTiles" || question.interaction === "match" || question.interaction === "sentenceOrder" ? <p className="activityHint">Pick the best tile. The correct answer moves around each question.</p> : null}
+            {question.interaction === "trueFalse" ? <p className="activityHint">Choose true or false.</p> : null}
             <div className="answersGrid">
               {question.options.map((option, index) => (
                 <button key={`${question.id}-${option}`} className={`answerBtn tile${(index + question.id.charCodeAt(0) + question.id.charCodeAt(question.id.length - 1)) % 4}`} onClick={() => answerQuestion(index)}>{option}</button>
