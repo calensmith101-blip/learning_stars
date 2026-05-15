@@ -289,6 +289,5 @@ function SettingsPage({ state, setState, setProfilePatch }: { state: AppState; s
       <label className="ghost fileBtn">Import save<input type="file" accept="application/json" onChange={async e => { const file = e.target.files?.[0]; if (!file) return; const parsed = importState(await file.text()); if (parsed) setState(parsed); }} /></label>
       <button className="danger" onClick={() => confirm("Reset all progress?") && setState(getDefaultState())}>Reset all progress</button>
     </div>
-    <div className="pwaBox"><strong>PWA ready</strong><p>This build includes manifest files, icons and a service worker for PWA Builder.</p></div>
   </section>;
 }
