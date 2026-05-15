@@ -1,266 +1,294 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AGE_BANDS, BOOST_MULTIPLIER, CURRICULUM_NOTES, LEVELS_PER_AGE, TOPICS } from "../lib/curriculum";
-import { applyAnswer, getAccuracy, getBoostCountdown, getBoostActive, getOverallLevel, getOverallProgressPercent, getStarsToNextBoost, markQuestionSeen } from "../lib/game";
-import { buildQuestion, estimateQuestionCount } from "../lib/question-bank";
+import { AGE_BANDS, CURRICULUM_NOTES, MAX_LEVELS_PER_AGE, POINTS_PER_CORRECT, POINTS_PER_STAR, STARS_PER_LEVEL, TOPICS, ageLabel } from "../lib/curriculum";
+import { accuracy, applyAnswer, completeQuestNode, defeatDavey, markSeen, progressToLevelStars, progressToStar } from "../lib/game";
+import { estimateQuestionCount, pickNextQuestion } from "../lib/question-bank";
 import { exportState, getDefaultState, importState, loadState, saveState, type AppState } from "../lib/storage";
-import type { Celebration, LearnerProfile, Question, TopicId } from "../lib/types";
+import type { AgeBand, LearnerProfile, Question, TopicId } from "../lib/types";
 
-const download = (filename: string, data: string) => {
-  const blob = new Blob([data], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const element = document.createElement("a");
-  element.href = url;
-  element.download = filename;
-  element.click();
-  URL.revokeObjectURL(url);
+type Screen = "home" | "topics" | "quiz" | "progress" | "settings" | "quest";
+
+type Toast = { title: string; body: string; kind: "good" | "star" | "level" | "treasure" } | null;
+
+const interactionName: Record<Question["interaction"], string> = {
+  choose: "Pick one",
+  fillBlank: "Fill the blank",
+  wordTiles: "Word tiles",
+  numberTiles: "Number tiles",
+  trueFalse: "True or false",
+  sentenceOrder: "Build it",
+  match: "Match it",
+  spellingBee: "Spelling bee",
+  oddOneOut: "Odd one out"
 };
 
-type Screen = "home" | "quiz" | "progress" | "parent";
+function download(filename: string, data: string) {
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
-export default function HomePage() {
+export default function App() {
   const [state, setState] = useState<AppState>(getDefaultState);
   const [screen, setScreen] = useState<Screen>("home");
   const [question, setQuestion] = useState<Question | null>(null);
-  const [result, setResult] = useState<{ correct: boolean; points: number; message: string } | null>(null);
-  const [celebration, setCelebration] = useState<Celebration | null>(null);
-  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
-  const [now, setNow] = useState(Date.now());
+  const [toast, setToast] = useState<Toast>(null);
+  const [questMode, setQuestMode] = useState(false);
 
   useEffect(() => setState(loadState()), []);
   useEffect(() => saveState(state), [state]);
   useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-  useEffect(() => {
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => undefined);
   }, []);
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 2800);
+    return () => window.clearTimeout(id);
+  }, [toast]);
 
-  const activeProfile = useMemo(
-    () => state.profiles.find((profile) => profile.id === state.activeProfileId) ?? state.profiles[0],
-    [state]
-  );
-  const activeTopic = TOPICS.find((topic) => topic.id === state.activeTopicId) ?? TOPICS[0];
+  const profile = useMemo(() => state.profiles.find(p => p.id === state.activeProfileId) ?? state.profiles[0], [state]);
+  const topic = TOPICS.find(t => t.id === state.activeTopicId) ?? TOPICS[0];
 
   useEffect(() => {
-    if (!activeProfile) return;
-    setQuestion(buildQuestion(activeProfile, state.activeTopicId));
-  }, [activeProfile, state.activeTopicId]);
+    if (profile) setQuestion(pickNextQuestion(profile, state.activeTopicId));
+  }, [profile?.id, profile?.ageBand, profile?.level, state.activeTopicId]);
 
-  if (!activeProfile || !question) return null;
-
-  const overallLevel = getOverallLevel(activeProfile);
-  const accuracy = getAccuracy(activeProfile);
-  const progressPercent = getOverallProgressPercent(activeProfile);
-  const boostText = getBoostCountdown(activeProfile, now);
-  const boostActive = getBoostActive(activeProfile, now);
-  const interactionLabel = question.interaction === "fillBlank" ? "Fill the blank" : question.interaction === "wordTiles" ? "Word tiles" : question.interaction === "numberTiles" ? "Number tiles" : question.interaction === "sentenceOrder" ? "Build it" : question.interaction === "match" ? "Match it" : question.interaction === "trueFalse" ? "True or false" : "Choose";
-
-  const updateProfile = (profileId: string, updater: (profile: LearnerProfile) => LearnerProfile) => {
-    setState((current) => ({
-      ...current,
-      profiles: current.profiles.map((profile) => (profile.id === profileId ? updater(profile) : profile))
-    }));
+  const updateProfile = (profileId: string, updater: (p: LearnerProfile) => LearnerProfile) => {
+    setState(current => ({ ...current, profiles: current.profiles.map(p => p.id === profileId ? updater(p) : p) }));
   };
 
-  const selectTopic = (topicId: TopicId) => {
-    setResult(null);
-    setState((current) => ({ ...current, activeTopicId: topicId }));
+  const chooseTopic = (topicId: TopicId) => {
+    setQuestMode(false);
+    setState(current => ({ ...current, activeTopicId: topicId }));
     setScreen("quiz");
   };
 
-  const answerQuestion = (index: number) => {
-    const outcome = applyAnswer(activeProfile, state.activeTopicId, question, index);
-    updateProfile(activeProfile.id, () => outcome.profile);
-    setResult(outcome.result);
-    setCelebration(outcome.celebration);
-    setQuestion(buildQuestion(outcome.profile, state.activeTopicId));
-  };
+  const nextQuestion = (p = profile, topicId = state.activeTopicId, offset = 0) => setQuestion(pickNextQuestion(p, topicId, offset));
 
   const skipQuestion = () => {
-    const nextProfile = markQuestionSeen(activeProfile, question);
-    updateProfile(activeProfile.id, () => nextProfile);
-    setResult(null);
-    setQuestion(buildQuestion(nextProfile, state.activeTopicId));
+    if (!question || !profile) return;
+    const seen = markSeen(profile, state.activeTopicId, question);
+    updateProfile(profile.id, () => seen);
+    nextQuestion(seen, state.activeTopicId, 99);
   };
 
-  const renameProfile = (profileId: string, patch: Partial<LearnerProfile>) => {
-    updateProfile(profileId, (profile) => ({ ...profile, ...patch }));
+  const answer = (index: number) => {
+    if (!question || !profile) return;
+    const outcome = applyAnswer(profile, state.activeTopicId, question, index);
+    let next = outcome.profile;
+    if (questMode && outcome.correct) {
+      const beforePieces = next.quest.pieces.filter(Boolean).length;
+      if (next.streak > 0 && next.streak % 3 === 0) next = completeQuestNode(next);
+      const afterPieces = next.quest.pieces.filter(Boolean).length;
+      if (afterPieces > beforePieces) setToast({ title: "Treasure found!", body: `You found piece ${afterPieces} of Davey Jones' private collection.`, kind: "treasure" });
+    } else if (outcome.levelUp) {
+      setToast({ title: "Level up!", body: `Level ${next.level}. Questions will get a tiny bit harder.`, kind: "level" });
+    } else if (outcome.starEarned) {
+      setToast({ title: "New star!", body: `Every ${STARS_PER_LEVEL} stars gives a new level.`, kind: "star" });
+    } else {
+      setToast({ title: outcome.correct ? "Nice work!" : "Good try", body: outcome.message, kind: outcome.correct ? "good" : "good" });
+    }
+    updateProfile(profile.id, () => next);
+    nextQuestion(next, state.activeTopicId, outcome.correct ? 7 : 13);
   };
 
-  const doExport = () => download("family-learning-stars-save.json", exportState(state));
-  const doImport = (text: string) => {
-    const parsed = importState(text);
-    if (parsed) setState(parsed);
+  const setProfilePatch = (id: string, patch: Partial<LearnerProfile>) => updateProfile(id, p => ({ ...p, ...patch }));
+
+  const startQuest = () => {
+    setQuestMode(true);
+    setState(current => ({ ...current, activeTopicId: "english" }));
+    setScreen("quest");
+    if (profile) setQuestion(pickNextQuestion(profile, "english", 777));
   };
 
-  return (
-    <main className="page">
-      <section className="hero">
-        <div className="heroCopy">
-          <img className="appIcon" src="/icon-192.png" alt="Learning Stars app icon" />
-          <div>
-            <p className="eyebrow">Child learning • Offline ready • Australian curriculum inspired</p>
-            <h1>Family Learning Stars</h1>
-            <p className="heroText">
-              Pick a child profile, choose a topic, then answer questions on a separate quiz page. Questions begin very easy for the selected age band and become harder as levels rise.
-            </p>
+  const battleDavey = () => {
+    if (!profile) return;
+    const spelling = ["treasure", "captain", "ocean", "island", "adventure", "mystery"];
+    const word = spelling[(profile.answered + profile.level) % spelling.length];
+    const letters = word.split("").join(" - ");
+    const fake = word.slice(0, -1) + "a";
+    const q: Question = {
+      id: `davey-${word}`,
+      key: `davey|${word}`,
+      topic: "english",
+      prompt: `Davey Jones spelling bee: Which spelling is correct for the word with letters ${letters}?`,
+      options: [word, fake, word.replace("e", "i"), word + "e"].sort(() => Math.random() - 0.5),
+      answerIndex: 0,
+      correct: word,
+      explanation: `${word} is the correct spelling.`,
+      difficulty: 5,
+      strand: "Spelling",
+      interaction: "spellingBee"
+    };
+    q.answerIndex = q.options.findIndex(o => o === word);
+    setQuestion(q);
+    setQuestMode(true);
+    setScreen("quest");
+  };
+
+  const answerDavey = (index: number) => {
+    if (!question || !profile) return;
+    if (question.key.startsWith("davey") && index === question.answerIndex) {
+      const next = defeatDavey(applyAnswer(profile, "english", question, index).profile);
+      updateProfile(profile.id, () => next);
+      setToast({ title: "Davey defeated!", body: "You won the spelling bee and completed the collection.", kind: "treasure" });
+      nextQuestion(next, "english", 333);
+      return;
+    }
+    answer(index);
+  };
+
+  if (!profile || !question) return null;
+
+  return <main className="appShell">
+    {toast && <div className={`toast ${toast.kind}`}><strong>{toast.title}</strong><span>{toast.body}</span></div>}
+    <nav className="topNav">
+      <button onClick={() => setScreen("home")}>🏠 Home</button>
+      <button onClick={() => setScreen("topics")}>🎯 Quiz topics</button>
+      <button onClick={() => setScreen("quest")}>🗺️ Treasure quest</button>
+      <button onClick={() => setScreen("progress")}>⭐ Progress</button>
+      <button onClick={() => setScreen("settings")}>⚙️ Settings</button>
+    </nav>
+
+    {screen === "home" && <section className="heroScreen">
+      <div className="heroCard glass">
+        <div className="heroLeft">
+          <img src="/icon-192.png" className="bigIcon" alt="Family Learning Stars" />
+          <p className="eyebrow">Australian Curriculum-inspired learning game</p>
+          <h1>Family Learning Stars</h1>
+          <p className="bigLead">A colourful quiz and treasure quest for kids, teens and adults. Pick a profile, set an age, choose a topic, earn points, collect stars and level up.</p>
+          <div className="ctaRow">
+            <button className="primaryBtn" onClick={() => setScreen("topics")}>Choose quiz topic</button>
+            <button className="questBtn" onClick={startQuest}>Start treasure quest</button>
           </div>
         </div>
-        <div className="heroStats">
-          <StatCard label="Question variants" value={estimateQuestionCount().toLocaleString()} />
-          <StatCard label="Child age band" value={activeProfile.ageBand} />
-          <StatCard label="Boost" value={boostText} />
+        <div className="scoreOrb">
+          <span>{profile.avatar}</span>
+          <strong>{profile.name}</strong>
+          <small>{ageLabel(profile.ageBand)} • Level {profile.level}/{MAX_LEVELS_PER_AGE}</small>
+          <div className="miniStats"><b>{profile.points}</b><span>points</span></div>
+          <div className="miniStats"><b>{profile.stars}</b><span>stars</span></div>
         </div>
+      </div>
+      <ProfileStrip state={state} setState={setState} />
+      <section className="infoGrid">
+        <Info title="Scoring" body={`Every correct answer is ${POINTS_PER_CORRECT} points. Every ${POINTS_PER_STAR} points earns a star. Every ${STARS_PER_LEVEL} stars gives a new level.`} />
+        <Info title="Difficulty" body="The selected age starts the difficulty. Each level nudges the questions up slowly without jumping too hard." />
+        <Info title="Question styles" body="The game mixes normal answers, blanks, word tiles, number tiles, true/false, matching, sentence order and odd-one-out tasks." />
       </section>
+    </section>}
 
-      <section className="panel profilePanel">
-        <div className="panelHeader">
-          <h2>1. Choose the child</h2>
-          <div className="buttonRow">
-            <button className="ghostBtn" onClick={() => setProfileEditorOpen((open) => !open)}>{profileEditorOpen ? "Hide editor" : "Edit profiles"}</button>
-            <button className="ghostBtn" onClick={() => setScreen("progress")}>Points & progress</button>
-            <button className="ghostBtn" onClick={() => setScreen("parent")}>Parent view</button>
-          </div>
-        </div>
-        <div className="profilesGrid">
-          {state.profiles.map((profile) => {
-            const selected = profile.id === activeProfile.id;
-            return (
-              <button key={profile.id} className={`profileCard ${selected ? "selected" : ""}`} onClick={() => setState((current) => ({ ...current, activeProfileId: profile.id }))}>
-                <div className="profileAvatar">{profile.avatar}</div>
-                <div>
-                  <strong>{profile.name}</strong>
-                  <div>Age {profile.ageBand}</div>
-                  <div>Level {getOverallLevel(profile)} / {LEVELS_PER_AGE}</div>
-                  <div>{profile.stars} stars</div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        {profileEditorOpen ? (
-          <div className="editorGrid">
-            {state.profiles.map((profile) => (
-              <div key={profile.id} className="editorCard">
-                <label>Name<input value={profile.name} maxLength={20} onChange={(event) => renameProfile(profile.id, { name: event.target.value })} /></label>
-                <label>Avatar<input value={profile.avatar} maxLength={2} onChange={(event) => renameProfile(profile.id, { avatar: event.target.value })} /></label>
-                <label>Child age band<select value={profile.ageBand} onChange={(event) => renameProfile(profile.id, { ageBand: event.target.value as LearnerProfile["ageBand"] })}>{AGE_BANDS.map((ageBand) => <option key={ageBand} value={ageBand}>{ageBand}</option>)}</select></label>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </section>
+    {screen === "topics" && <section className="screenCard">
+      <Header title="Choose your quiz topic" subtitle="These are now the only quiz topics. Tap one to open a separate quiz page." />
+      <div className="topicGrid">
+        {TOPICS.map(t => <button key={t.id} className={`topicCard ${t.colour}`} onClick={() => chooseTopic(t.id)}>
+          <span className="topicIcon">{t.icon}</span>
+          <strong>{t.label}</strong>
+          <small>{t.curriculumArea}</small>
+          <p>{t.focus}</p>
+        </button>)}
+      </div>
+    </section>}
 
-      {screen === "home" ? (
-        <section className="panel">
-          <div className="panelHeader"><h2>2. Choose a topic</h2></div>
-          <div className="topicTiles">
-            {TOPICS.map((topic) => (
-              <button key={topic.id} className="topicTile" onClick={() => selectTopic(topic.id)}>
-                <span className="topicIcon">{topic.icon}</span>
-                <strong>{topic.label}</strong>
-                <small>{topic.curriculumArea}</small>
-                <span>Level {activeProfile.topicLevel[topic.id]}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
+    {screen === "quiz" && <QuizPage topic={topic} profile={profile} question={question} onAnswer={answer} onSkip={skipQuestion} onBack={() => setScreen("topics")} />}
 
-      {screen === "quiz" ? (
-        <section className="panel quizPanel">
-          <div className="panelHeader">
-            <button className="ghostBtn" onClick={() => setScreen("home")}>← Topics</button>
-            <h2>{activeTopic.icon} {activeTopic.label}</h2>
-            <button className="ghostBtn" onClick={skipQuestion}>Skip</button>
-          </div>
-          <div className="statsRow">
-            <StatCard label="Overall level" value={`${overallLevel}/${LEVELS_PER_AGE}`} />
-            <StatCard label="Topic level" value={`${activeProfile.topicLevel[state.activeTopicId]}/${LEVELS_PER_AGE}`} />
-            <StatCard label="Accuracy" value={`${accuracy}%`} />
-            <StatCard label="Stars" value={`${activeProfile.stars}`} />
-          </div>
-          <div className="progressBlock">
-            <div className="progressLabel"><span>Progress to next level</span><span>{progressPercent}%</span></div>
-            <div className="progressBar"><span style={{ width: `${progressPercent}%` }} /></div>
-            {boostActive ? <p className="boostNote">x{BOOST_MULTIPLIER} points active now.</p> : <p className="boostNote">Next boost in {getStarsToNextBoost(activeProfile)} stars.</p>}
-          </div>
-          <div className={`questionCard ${question.interaction}`}>
-            <div className="questionMeta"><span>Age {activeProfile.ageBand}</span><span>{question.strand}</span><span>Difficulty {question.difficulty}</span><span>{interactionLabel}</span></div>
-            <h3>{question.prompt}</h3>
-            {question.interaction === "fillBlank" ? <p className="activityHint">Tap the tile that best fills the blank.</p> : null}
-            {question.interaction === "wordTiles" || question.interaction === "numberTiles" || question.interaction === "match" || question.interaction === "sentenceOrder" ? <p className="activityHint">Pick the best tile. The correct answer moves around each question.</p> : null}
-            {question.interaction === "trueFalse" ? <p className="activityHint">Choose true or false.</p> : null}
-            <div className="answersGrid">
-              {question.options.map((option, index) => (
-                <button key={`${question.id}-${option}`} className={`answerBtn tile${(index + question.id.charCodeAt(0) + question.id.charCodeAt(question.id.length - 1)) % 4}`} onClick={() => answerQuestion(index)}>{option}</button>
-              ))}
-            </div>
-          </div>
-          {result ? <div className={`resultCard ${result.correct ? "correct" : "wrong"}`}><strong>{result.correct ? `Correct! +${result.points} points` : "Not quite — keep going"}</strong><p>{result.message}</p></div> : null}
-        </section>
-      ) : null}
+    {screen === "progress" && <ProgressPage state={state} profile={profile} />}
 
+    {screen === "settings" && <SettingsPage state={state} setState={setState} setProfilePatch={setProfilePatch} />}
 
-      {screen === "progress" ? (
-        <section className="panel progressView">
-          <div className="panelHeader"><h2>Points & progress</h2><button className="ghostBtn" onClick={() => setScreen("home")}>Back home</button></div>
-          <p className="heroText">{activeProfile.name}'s age band is used first, then topic levels slowly increase the difficulty. Younger children stay on easier school-style questions for longer.</p>
-          <div className="statsRow">
-            <StatCard label="Total points" value={activeProfile.totalXp.toLocaleString()} />
-            <StatCard label="Overall level" value={`${overallLevel}/${LEVELS_PER_AGE}`} />
-            <StatCard label="Questions answered" value={`${activeProfile.answered}`} />
-            <StatCard label="Questions seen" value={`${(activeProfile.seenQuestionKeys ?? activeProfile.answeredQuestionIds ?? []).length}`} />
-          </div>
-          <div className="progressBlock">
-            <div className="progressLabel"><span>Next overall level</span><span>{progressPercent}%</span></div>
-            <div className="progressBar"><span style={{ width: `${progressPercent}%` }} /></div>
-          </div>
-          <div className="topicProgressGrid">
-            {TOPICS.map((topic) => {
-              const topicXp = activeProfile.topicXp[topic.id] ?? 0;
-              const topicProgress = Math.round(((topicXp % 2500) / 2500) * 100);
-              return (
-                <div key={topic.id} className="topicProgressCard">
-                  <h3>{topic.icon} {topic.label}</h3>
-                  <p>{topic.curriculumArea}</p>
-                  <strong>Level {activeProfile.topicLevel[topic.id]} • {topicXp.toLocaleString()} pts</strong>
-                  <div className="miniProgress"><span style={{ width: `${topicProgress}%` }} /></div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
-      {screen === "parent" ? (
-        <section className="panel parentView">
-          <div className="panelHeader"><h2>Parent summary</h2><button className="ghostBtn" onClick={() => setScreen("home")}>Back home</button></div>
-          <p>This app saves progress locally on the device. It can run offline after the first browser load or inside an Android wrapper.</p>
-          <div className="summaryGrid">
-            {state.profiles.map((profile) => <div key={profile.id} className="summaryCard"><h4>{profile.avatar} {profile.name}</h4><p>Age band: {profile.ageBand}</p><p>Answered: {profile.answered}</p><p>Correct: {profile.correct}</p><p>Accuracy: {getAccuracy(profile)}%</p><p>Stars: {profile.stars}</p><p>Achievements: {profile.achievements.length ? profile.achievements.join(", ") : "None yet"}</p></div>)}
-          </div>
-          <div className="ioRow">
-            <button className="primaryBtn" onClick={doExport}>Export progress</button>
-            <label className="ghostBtn uploadLabel">Import progress<input type="file" accept="application/json" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; doImport(await file.text()); }} /></label>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="panel curriculumPanel">
-        <h2>Curriculum-inspired coverage</h2>
-        <div className="curriculumGrid">{TOPICS.map((topic) => <div key={topic.id} className="curriculumCard"><h3>{topic.icon} {topic.label}</h3><p><strong>Area:</strong> {topic.curriculumArea}</p><p><strong>Focus:</strong> {topic.focus}</p></div>)}</div>
-        <ul className="notesList">{CURRICULUM_NOTES.map((note) => <li key={note}>{note}</li>)}</ul>
-      </section>
-
-      {celebration ? <div className="celebrationOverlay" onClick={() => setCelebration(null)}><div className="celebrationCard" onClick={(event) => event.stopPropagation()}><div className="celebrationBurst">✨ ⭐ 🌠 ⭐ ✨</div><h2>{celebration.title}</h2><p>{celebration.subtitle}</p>{"endsAt" in celebration ? <p className="boostNote">Boost ends in {Math.max(0, Math.ceil((celebration.endsAt - now) / 1000))} seconds.</p> : null}<button className="primaryBtn" onClick={() => setCelebration(null)}>Awesome!</button></div></div> : null}
-    </main>
-  );
+    {screen === "quest" && <section className="screenCard questScreen">
+      <Header title="Treasure Map Quest" subtitle="Complete 3 correct answers in a row to find each treasure box. Find all 10 pieces of Davey Jones' private collection, then beat him in a spelling bee." />
+      <div className="mapPanel">
+        {profile.quest.pieces.map((found, i) => <div key={i} className={`mapNode ${found ? "found" : i === profile.quest.currentNode ? "active" : ""}`}><span>{found ? "💎" : i === profile.quest.currentNode ? "❌" : "🟫"}</span><small>{i + 1}</small></div>)}
+      </div>
+      <div className="questActions">
+        <button className="questBtn" onClick={() => { setQuestMode(true); nextQuestion(profile, state.activeTopicId, 55); }}>Quest question</button>
+        <button className="primaryBtn" disabled={!profile.quest.daveyUnlocked} onClick={battleDavey}>Battle Davey Jones</button>
+      </div>
+      {profile.quest.daveyDefeated && <div className="winBanner">🏆 Davey Jones is defeated. Collection complete!</div>}
+      <QuizBox profile={profile} question={question} onAnswer={answerDavey} onSkip={skipQuestion} />
+    </section>}
+  </main>;
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
-  return <div className="statCard"><span>{label}</span><strong>{value}</strong></div>;
+function Header({ title, subtitle }: { title: string; subtitle: string }) {
+  return <div className="sectionHeader"><p className="eyebrow">Family Learning Stars</p><h2>{title}</h2><p>{subtitle}</p></div>;
+}
+
+function ProfileStrip({ state, setState }: { state: AppState; setState: React.Dispatch<React.SetStateAction<AppState>> }) {
+  return <div className="profileStrip">{state.profiles.map(p => <button key={p.id} className={p.id === state.activeProfileId ? "profilePill active" : "profilePill"} onClick={() => setState(s => ({ ...s, activeProfileId: p.id }))}><span>{p.avatar}</span><b>{p.name}</b><small>{ageLabel(p.ageBand)}</small></button>)}</div>;
+}
+
+function Info({ title, body }: { title: string; body: string }) {
+  return <div className="info"><strong>{title}</strong><p>{body}</p></div>;
+}
+
+function QuizPage({ topic, profile, question, onAnswer, onSkip, onBack }: any) {
+  return <section className="screenCard quizScreen">
+    <div className="quizTop"><button className="ghost" onClick={onBack}>← Topics</button><div><p className="eyebrow">{topic.curriculumArea}</p><h2>{topic.icon} {topic.label}</h2></div><button className="ghost" onClick={onSkip}>Skip</button></div>
+    <QuizBox profile={profile} question={question} onAnswer={onAnswer} onSkip={onSkip} />
+  </section>;
+}
+
+function QuizBox({ profile, question, onAnswer }: { profile: LearnerProfile; question: Question; onAnswer: (index: number) => void; onSkip?: () => void }) {
+  return <div className={`quizBox ${question.interaction}`}>
+    <div className="questionStats">
+      <span>{ageLabel(profile.ageBand)}</span><span>Level {profile.level}</span><span>{question.strand}</span><span>{interactionName[question.interaction]}</span>
+    </div>
+    <h3>{question.prompt}</h3>
+    <p className="hint">{hintFor(question.interaction)}</p>
+    <div className="answerGrid">{question.options.map((option, index) => <button key={`${question.key}-${option}`} className={`answerTile tile${index + 1}`} onClick={() => onAnswer(index)}>{option}</button>)}</div>
+  </div>;
+}
+
+function hintFor(type: Question["interaction"]) {
+  if (type === "fillBlank") return "Tap the word or number that best fills the blank.";
+  if (type === "sentenceOrder") return "Choose the sentence that is built in the best order.";
+  if (type === "oddOneOut") return "Find the tile that does not belong.";
+  if (type === "spellingBee") return "Pick the correct spelling.";
+  return "The right answer moves to a different tile, so read each option carefully.";
+}
+
+function ProgressPage({ state, profile }: { state: AppState; profile: LearnerProfile }) {
+  const starPercent = Math.round((progressToStar(profile) / POINTS_PER_STAR) * 100);
+  const levelStars = progressToLevelStars(profile);
+  return <section className="screenCard progressScreen">
+    <Header title="Points & Progress" subtitle="Track points, stars, levels, accuracy and treasure quest progress." />
+    <div className="progressCards">
+      <Stat label="Points" value={profile.points} />
+      <Stat label="Stars" value={profile.stars} />
+      <Stat label="Level" value={`${profile.level}/${MAX_LEVELS_PER_AGE}`} />
+      <Stat label="Accuracy" value={`${accuracy(profile)}%`} />
+    </div>
+    <div className="barBlock"><div><b>Next star</b><span>{progressToStar(profile)}/{POINTS_PER_STAR} points</span></div><div className="bar"><i style={{ width: `${starPercent}%` }} /></div></div>
+    <div className="barBlock"><div><b>Next level</b><span>{levelStars}/{STARS_PER_LEVEL} stars</span></div><div className="bar"><i style={{ width: `${Math.round((levelStars / STARS_PER_LEVEL) * 100)}%` }} /></div></div>
+    <div className="topicProgress">{TOPICS.map(t => <div key={t.id} className="topicLine"><span>{t.icon} {t.label}</span><b>{profile.topicPoints[t.id] ?? 0} pts</b><small>{profile.topicCorrect[t.id] ?? 0}/{profile.topicAnswered[t.id] ?? 0} correct</small></div>)}</div>
+    <div className="notes">{CURRICULUM_NOTES.map(n => <p key={n}>• {n}</p>)}</div>
+  </section>;
+}
+
+function Stat({ label, value }: { label: string; value: string | number }) { return <div className="stat"><small>{label}</small><strong>{value}</strong></div>; }
+
+function SettingsPage({ state, setState, setProfilePatch }: { state: AppState; setState: React.Dispatch<React.SetStateAction<AppState>>; setProfilePatch: (id: string, patch: Partial<LearnerProfile>) => void }) {
+  return <section className="screenCard settingsScreen">
+    <Header title="Settings" subtitle="Edit profiles, age difficulty, save data, reset progress or export your family save file." />
+    <div className="settingsGrid">
+      {state.profiles.map(p => <div key={p.id} className="settingCard">
+        <label>Name<input value={p.name} onChange={e => setProfilePatch(p.id, { name: e.target.value })} /></label>
+        <label>Avatar<input value={p.avatar} maxLength={2} onChange={e => setProfilePatch(p.id, { avatar: e.target.value })} /></label>
+        <label>Age / difficulty starting point<select value={p.ageBand} onChange={e => setProfilePatch(p.id, { ageBand: e.target.value as AgeBand })}>{AGE_BANDS.map(a => <option key={a} value={a}>{ageLabel(a)}</option>)}</select></label>
+      </div>)}
+    </div>
+    <div className="settingsActions">
+      <button className="ghost" onClick={() => download("family-learning-stars-save.json", exportState(state))}>Export save</button>
+      <label className="ghost fileBtn">Import save<input type="file" accept="application/json" onChange={async e => { const file = e.target.files?.[0]; if (!file) return; const parsed = importState(await file.text()); if (parsed) setState(parsed); }} /></label>
+      <button className="danger" onClick={() => confirm("Reset all progress?") && setState(getDefaultState())}>Reset all progress</button>
+    </div>
+    <div className="pwaBox"><strong>PWA ready</strong><p>This build includes manifest files, icons and a service worker for PWA Builder.</p></div>
+  </section>;
 }

@@ -1,36 +1,23 @@
 {
   "name": "Family Learning Stars",
   "short_name": "Learning Stars",
-  "description": "A fun Australian curriculum-inspired learning app for kids with maths, English, science and more.",
+  "description": "A colourful Australian Curriculum-inspired learning quiz and treasure quest for kids, teens and adults.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#fff7ed",
+  "background_color": "#120f2f",
   "theme_color": "#7c3aed",
-  "categories": ["education", "kids", "learning"],
   "lang": "en-AU",
   "dir": "ltr",
+  "categories": ["education", "games", "kids"],
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
   "screenshots": [
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow"
-    }
+    { "src": "/screenshot-mobile.png", "sizes": "390x844", "type": "image/png", "form_factor": "narrow", "label": "Quiz home screen" },
+    { "src": "/screenshot-wide.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "Treasure quest and progress" }
   ]
 }

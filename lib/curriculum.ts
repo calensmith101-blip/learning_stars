@@ -1,30 +1,28 @@
-import type { AgeBand, Topic } from "./types";
+import type { AgeBand, Topic, TopicId } from "./types";
 
-export const AGE_BANDS: AgeBand[] = ["5-6", "7-8", "9-10", "11-13"];
-export const LEVELS_PER_AGE = 240;
-export const STAR_EVERY_LEVELS = 3;
-export const STARS_FOR_BOOST = 6;
-export const BOOST_MULTIPLIER = 9;
-export const BOOST_DURATION_MS = 3 * 60 * 1000;
-export const XP_PER_LEVEL = 2500;
+export const AGE_BANDS: AgeBand[] = ["5-6", "7-8", "9-10", "11-13", "14-17", "adult"];
 
 export const TOPICS: Topic[] = [
-  { id: "english", label: "English", icon: "📚", curriculumArea: "English", focus: "reading, grammar, spelling, comprehension, speaking" },
-  { id: "poetry", label: "Poetry", icon: "🪶", curriculumArea: "English / Literature", focus: "rhythm, rhyme, imagery, metaphor, voice" },
-  { id: "maths", label: "Maths", icon: "➕", curriculumArea: "Mathematics", focus: "number, algebra, measurement, data, probability" },
-  { id: "science", label: "Science", icon: "🔬", curriculumArea: "Science", focus: "biology, chemistry, physics, earth and space" },
-  { id: "history", label: "History", icon: "🏺", curriculumArea: "HASS", focus: "chronology, evidence, cause and effect, continuity and change" },
-  { id: "geography", label: "Geography", icon: "🗺️", curriculumArea: "HASS", focus: "place, environment, maps, climate, sustainability" },
-  { id: "civics", label: "Civics", icon: "🏛️", curriculumArea: "HASS", focus: "democracy, fairness, law, community, rights and responsibilities" },
-  { id: "health", label: "Health", icon: "💚", curriculumArea: "Health and Physical Education", focus: "wellbeing, relationships, safety, movement, choices" },
-  { id: "digital", label: "Digital Tech", icon: "💻", curriculumArea: "Technologies", focus: "algorithms, data, systems, online safety, design" },
-  { id: "arts", label: "Arts", icon: "🎨", curriculumArea: "The Arts", focus: "visual art, music, drama, dance, media arts" },
-  { id: "languages", label: "Languages", icon: "🗣️", curriculumArea: "Languages", focus: "vocabulary, meaning, communication, culture" },
-  { id: "financial", label: "Money Skills", icon: "💰", curriculumArea: "Mathematics / Work Studies", focus: "budgeting, saving, needs, wants, percentages" }
+  { id: "english", label: "English", icon: "📚", colour: "pink", curriculumArea: "English", focus: "reading, phonics, grammar, spelling, comprehension and language choices" },
+  { id: "maths", label: "Maths", icon: "➕", colour: "blue", curriculumArea: "Mathematics", focus: "number, algebra, measurement, space, statistics and probability" },
+  { id: "science", label: "Science", icon: "🔬", colour: "green", curriculumArea: "Science", focus: "living things, materials, forces, energy, Earth and space" },
+  { id: "poetry", label: "Poetry", icon: "🪶", colour: "purple", curriculumArea: "English / Literature", focus: "rhyme, rhythm, imagery, voice, figurative language and mood" },
+  { id: "history", label: "History", icon: "🏺", colour: "orange", curriculumArea: "HASS / History", focus: "past and present, evidence, change, continuity, cause and effect" },
+  { id: "geography", label: "Geography", icon: "🗺️", colour: "teal", curriculumArea: "HASS / Geography", focus: "places, maps, environments, climate, resources and sustainability" },
+  { id: "health", label: "Health", icon: "💚", colour: "lime", curriculumArea: "Health and Physical Education", focus: "safety, wellbeing, relationships, movement, food and healthy choices" },
+  { id: "arts", label: "Arts", icon: "🎨", colour: "rainbow", curriculumArea: "The Arts", focus: "visual arts, music, drama, dance, media arts and responding" }
 ];
 
+export const TOPIC_IDS = TOPICS.map((topic) => topic.id) as TopicId[];
+export const POINTS_PER_CORRECT = 2;
+export const POINTS_PER_STAR = 50;
+export const STARS_PER_LEVEL = 3;
+export const MAX_LEVELS_PER_AGE = 220;
+
 export const CURRICULUM_NOTES = [
-  "Structured around Australian Curriculum Version 9 style learning areas and child year-level expectations.",
-  "Maths questions follow the six Mathematics strands: Number, Algebra, Measurement, Space, Statistics and Probability.",
-  "Difficulty starts very easy for the selected child age band, then rises slowly as points and topic levels increase."
+  "Questions are Australian Curriculum-inspired and organised around common school learning areas.",
+  "Maths uses Number, Algebra, Measurement, Space, Statistics and Probability style practice.",
+  "Difficulty starts from the learner age band, then climbs slowly as stars and levels grow."
 ];
+
+export const ageLabel = (age: AgeBand) => age === "adult" ? "Adult" : `Age ${age}`;
