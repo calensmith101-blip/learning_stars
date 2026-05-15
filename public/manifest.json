@@ -1,19 +1,14 @@
 {
   "name": "Family Learning Stars",
   "short_name": "Learning Stars",
-  "description": "A fun offline-friendly Australian curriculum-inspired learning app for kids with maths, English, science, points and progress.",
-  "id": "/",
+  "description": "A fun Australian curriculum-inspired learning app for kids with maths, English, science and more.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#120f28",
+  "background_color": "#fff7ed",
   "theme_color": "#7c3aed",
-  "categories": [
-    "education",
-    "kids",
-    "learning"
-  ],
+  "categories": ["education", "kids", "learning"],
   "lang": "en-AU",
   "dir": "ltr",
   "icons": [
@@ -35,16 +30,7 @@
       "src": "/screenshot-mobile.png",
       "sizes": "390x844",
       "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Family Learning Stars mobile home screen"
-    },
-    {
-      "src": "/screenshot-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Family Learning Stars topic and progress screen"
+      "form_factor": "narrow"
     }
-  ],
-  "prefer_related_applications": false
+  ]
 }

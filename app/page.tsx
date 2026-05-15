@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AGE_BANDS, BOOST_MULTIPLIER, CURRICULUM_NOTES, LEVELS_PER_AGE, TOPICS } from "../lib/curriculum";
-import { applyAnswer, getAccuracy, getBoostCountdown, getBoostActive, getOverallLevel, getOverallProgressPercent, getStarsToNextBoost, getQuestionFingerprint } from "../lib/game";
+import { applyAnswer, getAccuracy, getBoostCountdown, getBoostActive, getOverallLevel, getOverallProgressPercent, getStarsToNextBoost, markQuestionSeen } from "../lib/game";
 import { buildQuestion, estimateQuestionCount } from "../lib/question-bank";
 import { exportState, getDefaultState, importState, loadState, saveState, type AppState } from "../lib/storage";
 import type { Celebration, LearnerProfile, Question, TopicId } from "../lib/types";
@@ -71,24 +71,19 @@ export default function HomePage() {
     setScreen("quiz");
   };
 
-
-  const skipQuestion = () => {
-    const fingerprint = getQuestionFingerprint(question);
-    const skippedProfile: LearnerProfile = {
-      ...activeProfile,
-      recentQuestionIds: [question.id, ...(activeProfile.recentQuestionIds ?? [])].slice(0, 120),
-      recentQuestionFingerprints: [fingerprint, ...(activeProfile.recentQuestionFingerprints ?? [])].slice(0, 500)
-    };
-    updateProfile(activeProfile.id, () => skippedProfile);
-    setQuestion(buildQuestion(skippedProfile, state.activeTopicId));
-  };
-
   const answerQuestion = (index: number) => {
     const outcome = applyAnswer(activeProfile, state.activeTopicId, question, index);
     updateProfile(activeProfile.id, () => outcome.profile);
     setResult(outcome.result);
     setCelebration(outcome.celebration);
     setQuestion(buildQuestion(outcome.profile, state.activeTopicId));
+  };
+
+  const skipQuestion = () => {
+    const nextProfile = markQuestionSeen(activeProfile, question);
+    updateProfile(activeProfile.id, () => nextProfile);
+    setResult(null);
+    setQuestion(buildQuestion(nextProfile, state.activeTopicId));
   };
 
   const renameProfile = (profileId: string, patch: Partial<LearnerProfile>) => {
@@ -146,14 +141,6 @@ export default function HomePage() {
             );
           })}
         </div>
-
-        <div className="quickProgressCard">
-          <div>
-            <strong>{activeProfile.name}'s points</strong>
-            <span>{activeProfile.totalXp.toLocaleString()} points • Level {overallLevel}/{LEVELS_PER_AGE} • {accuracy}% accuracy</span>
-          </div>
-          <button className="primaryBtn" onClick={() => setScreen("progress")}>Open progress</button>
-        </div>
         {profileEditorOpen ? (
           <div className="editorGrid">
             {state.profiles.map((profile) => (
@@ -169,7 +156,7 @@ export default function HomePage() {
 
       {screen === "home" ? (
         <section className="panel">
-          <div className="panelHeader"><h2>2. Choose a topic</h2><button className="primaryBtn" onClick={() => setScreen("progress")}>View points & progress</button></div>
+          <div className="panelHeader"><h2>2. Choose a topic</h2></div>
           <div className="topicTiles">
             {TOPICS.map((topic) => (
               <button key={topic.id} className="topicTile" onClick={() => selectTopic(topic.id)}>
@@ -226,7 +213,7 @@ export default function HomePage() {
             <StatCard label="Total points" value={activeProfile.totalXp.toLocaleString()} />
             <StatCard label="Overall level" value={`${overallLevel}/${LEVELS_PER_AGE}`} />
             <StatCard label="Questions answered" value={`${activeProfile.answered}`} />
-            <StatCard label="Unique questions seen" value={`${(activeProfile.answeredQuestionFingerprints ?? activeProfile.answeredQuestionIds ?? []).length}`} />
+            <StatCard label="Questions seen" value={`${(activeProfile.seenQuestionKeys ?? activeProfile.answeredQuestionIds ?? []).length}`} />
           </div>
           <div className="progressBlock">
             <div className="progressLabel"><span>Next overall level</span><span>{progressPercent}%</span></div>

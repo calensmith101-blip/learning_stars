@@ -16,7 +16,8 @@ export const getDefaultState = (): AppState => ({
 const normaliseProfile = (profile: LearnerProfile): LearnerProfile => ({
   ...profile,
   recentQuestionIds: profile.recentQuestionIds ?? [],
-  answeredQuestionIds: profile.answeredQuestionIds ?? []
+  answeredQuestionIds: profile.answeredQuestionIds ?? [],
+  seenQuestionKeys: profile.seenQuestionKeys ?? []
 });
 
 export const loadState = (): AppState => {

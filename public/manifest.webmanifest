@@ -1,50 +1,14 @@
 {
   "name": "Family Learning Stars",
-  "short_name": "Learning Stars",
-  "description": "A fun offline-friendly Australian curriculum-inspired learning app for kids with maths, English, science, points and progress.",
-  "id": "/",
+  "short_name": "LearningStars",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#120f28",
-  "theme_color": "#7c3aed",
-  "categories": [
-    "education",
-    "kids",
-    "learning"
-  ],
-  "lang": "en-AU",
-  "dir": "ltr",
+  "theme_color": "#2d1b69",
+  "description": "Offline-friendly Australian curriculum inspired child learning app.",
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Family Learning Stars mobile home screen"
-    },
-    {
-      "src": "/screenshot-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Family Learning Stars topic and progress screen"
-    }
-  ],
-  "prefer_related_applications": false
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
 }
