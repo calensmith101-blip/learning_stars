@@ -1,29 +1,26 @@
-import "./globals.css";
 import type { Metadata, Viewport } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Family Learning Stars",
-  description: "A colourful Australian Curriculum-inspired quiz and treasure quest learning app.",
-  manifest: "/manifest.webmanifest",
-  icons: {
-    icon: "/icon-192.png",
-    apple: "/icon-192.png"
-  },
+  description: "Fun learning quizzes and treasure quests.",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     title: "Learning Stars",
-    statusBarStyle: "black-translucent"
-  }
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: "#7c3aed",
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en-AU">
       <body>{children}</body>
