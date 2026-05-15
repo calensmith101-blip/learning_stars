@@ -1,5 +1,5 @@
 import { LEVELS_PER_AGE, TOPICS } from "./curriculum";
-import { getOverallLevel, getProfileAgeIndex, getTopicLevel } from "./game";
+import { getOverallLevel, getProfileAgeIndex, getQuestionFingerprint, getTopicLevel } from "./game";
 import type { AgeBand, LearnerProfile, Question, TopicId } from "./types";
 
 const randFrom = <T,>(items: T[], seed: number): T => items[Math.abs(seed) % items.length];
@@ -1030,21 +1030,42 @@ const generators: Record<TopicId, (ageBand: AgeBand, difficulty: number, seed: n
 
 export const buildQuestion = (profile: LearnerProfile, topic: TopicId): Question => {
   const ageBand = profile.ageBand;
-  const ageStart = ageBand === "5-6" ? 0 : ageBand === "7-8" ? 1 : ageBand === "9-10" ? 2 : 3;
+  const ageStart = ageBand === "5-6" ? 0 : ageBand === "7-8" ? 1 : ageBand === "9-10" ? 2 : ageBand === "11-13" ? 3 : 4;
   const topicLevel = getTopicLevel(profile, topic);
-  const rampSize = ageBand === "5-6" ? 70 : ageBand === "7-8" ? 55 : 40;
-  const difficulty = Math.min(8, Math.max(1, ageStart + Math.ceil(topicLevel / rampSize)));
-  const baseSeed = (getProfileAgeIndex(ageBand) + 1) * 1000 + getOverallLevel(profile) * 37 + getTopicLevel(profile, topic) * 71 + profile.answered * 19;
+
+  // Age is the starting point, levels raise difficulty slowly.
+  // 5-6 year olds stay on Foundation / Year 1 style questions for much longer.
+  const rampSize = ageBand === "5-6" ? 110 : ageBand === "7-8" ? 85 : ageBand === "9-10" ? 65 : 50;
+  const difficulty = Math.min(8, Math.max(1, ageStart + Math.floor((topicLevel - 1) / rampSize) + 1));
+  const baseSeed = (getProfileAgeIndex(ageBand) + 1) * 100000 + getOverallLevel(profile) * 997 + getTopicLevel(profile, topic) * 389 + profile.answered * 173;
   const generator = generators[topic];
-  const attempts = Array.from({ length: 220 }, (_, index) => generator(ageBand, difficulty, baseSeed + index * 101));
-  const answered = profile.answeredQuestionIds ?? [];
-  const recent = profile.recentQuestionIds ?? [];
-  const neverAnswered = attempts.find((question) => !answered.includes(question.id) && !recent.includes(question.id));
-  const notRecent = attempts.find((question) => !recent.includes(question.id));
-  return neverAnswered ?? notRecent ?? attempts[0];
+
+  const answeredIds = new Set(profile.answeredQuestionIds ?? []);
+  const recentIds = new Set(profile.recentQuestionIds ?? []);
+  const answeredFingerprints = new Set(profile.answeredQuestionFingerprints ?? []);
+  const recentFingerprints = new Set(profile.recentQuestionFingerprints ?? []);
+
+  // Generate a big pool each turn and compare the actual wording + answer, not just the generated id.
+  // This stops the same question coming back with a new seed/id.
+  for (let index = 0; index < 3000; index += 1) {
+    const candidate = generator(ageBand, difficulty, baseSeed + index * 1009);
+    const fingerprint = getQuestionFingerprint(candidate);
+    if (!answeredIds.has(candidate.id) && !recentIds.has(candidate.id) && !answeredFingerprints.has(fingerprint) && !recentFingerprints.has(fingerprint)) {
+      return candidate;
+    }
+  }
+
+  // If a child somehow exhausts every fresh question at this level, keep it not-recent while still avoiding obvious repeats.
+  for (let index = 0; index < 3000; index += 1) {
+    const candidate = generator(ageBand, difficulty, baseSeed + index * 2003 + 17);
+    const fingerprint = getQuestionFingerprint(candidate);
+    if (!recentIds.has(candidate.id) && !recentFingerprints.has(fingerprint)) return candidate;
+  }
+
+  return generator(ageBand, Math.min(8, difficulty + 1), baseSeed + 900001);
 };
 
 export const estimateQuestionCount = () => {
   const ageBands = Object.keys(ageSettings) as AgeBand[];
-  return ageBands.length * TOPICS.length * LEVELS_PER_AGE * 220;
+  return ageBands.length * TOPICS.length * LEVELS_PER_AGE * 3000;
 };

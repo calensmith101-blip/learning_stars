@@ -1,6 +1,9 @@
 import { AGE_BANDS, BOOST_DURATION_MS, BOOST_MULTIPLIER, LEVELS_PER_AGE, STAR_EVERY_LEVELS, STARS_FOR_BOOST, TOPICS, XP_PER_LEVEL } from "./curriculum";
 import type { AgeBand, Celebration, LearnerProfile, Question, SessionResult, TopicId } from "./types";
 
+export const getQuestionFingerprint = (question: Question) =>
+  `${question.topic}::${question.prompt.trim().toLowerCase()}::${question.options[question.answerIndex]?.trim().toLowerCase() ?? ""}`;
+
 export const STORAGE_KEY = "family-learning-stars-production-v2";
 
 const createTopicRecord = (): Record<TopicId, number> =>
@@ -10,10 +13,10 @@ const createTopicXpRecord = (): Record<TopicId, number> =>
   Object.fromEntries(TOPICS.map((topic) => [topic.id, 0])) as Record<TopicId, number>;
 
 export const createProfiles = (): LearnerProfile[] => [
-  { id: "p1", name: "Alex", avatar: "🦘", ageBand: "5-6", totalXp: 0, stars: 0, answered: 0, correct: 0, streak: 0, boosterEndsAt: null, recentQuestionIds: [], answeredQuestionIds: [], topicLevel: createTopicRecord(), topicXp: createTopicXpRecord(), achievements: [] },
-  { id: "p2", name: "Bailey", avatar: "🌟", ageBand: "7-8", totalXp: 0, stars: 0, answered: 0, correct: 0, streak: 0, boosterEndsAt: null, recentQuestionIds: [], answeredQuestionIds: [], topicLevel: createTopicRecord(), topicXp: createTopicXpRecord(), achievements: [] },
-  { id: "p3", name: "Casey", avatar: "🐨", ageBand: "9-10", totalXp: 0, stars: 0, answered: 0, correct: 0, streak: 0, boosterEndsAt: null, recentQuestionIds: [], answeredQuestionIds: [], topicLevel: createTopicRecord(), topicXp: createTopicXpRecord(), achievements: [] },
-  { id: "p4", name: "Morgan", avatar: "🚀", ageBand: "11-13", totalXp: 0, stars: 0, answered: 0, correct: 0, streak: 0, boosterEndsAt: null, recentQuestionIds: [], answeredQuestionIds: [], topicLevel: createTopicRecord(), topicXp: createTopicXpRecord(), achievements: [] }
+  { id: "p1", name: "Alex", avatar: "🦘", ageBand: "5-6", totalXp: 0, stars: 0, answered: 0, correct: 0, streak: 0, boosterEndsAt: null, recentQuestionIds: [], answeredQuestionIds: [], recentQuestionFingerprints: [], answeredQuestionFingerprints: [], topicLevel: createTopicRecord(), topicXp: createTopicXpRecord(), achievements: [] },
+  { id: "p2", name: "Bailey", avatar: "🌟", ageBand: "7-8", totalXp: 0, stars: 0, answered: 0, correct: 0, streak: 0, boosterEndsAt: null, recentQuestionIds: [], answeredQuestionIds: [], recentQuestionFingerprints: [], answeredQuestionFingerprints: [], topicLevel: createTopicRecord(), topicXp: createTopicXpRecord(), achievements: [] },
+  { id: "p3", name: "Casey", avatar: "🐨", ageBand: "9-10", totalXp: 0, stars: 0, answered: 0, correct: 0, streak: 0, boosterEndsAt: null, recentQuestionIds: [], answeredQuestionIds: [], recentQuestionFingerprints: [], answeredQuestionFingerprints: [], topicLevel: createTopicRecord(), topicXp: createTopicXpRecord(), achievements: [] },
+  { id: "p4", name: "Morgan", avatar: "🚀", ageBand: "11-13", totalXp: 0, stars: 0, answered: 0, correct: 0, streak: 0, boosterEndsAt: null, recentQuestionIds: [], answeredQuestionIds: [], recentQuestionFingerprints: [], answeredQuestionFingerprints: [], topicLevel: createTopicRecord(), topicXp: createTopicXpRecord(), achievements: [] }
 ];
 
 export const getTopicLevel = (profile: LearnerProfile, topic: TopicId) => profile.topicLevel[topic];
@@ -54,6 +57,7 @@ export const applyAnswer = (
   selectedIndex: number
 ): { profile: LearnerProfile; result: SessionResult; celebration: Celebration | null } => {
   const isCorrect = selectedIndex === question.answerIndex;
+  const questionFingerprint = getQuestionFingerprint(question);
   const now = Date.now();
   const boostActive = getBoostActive(profile, now);
   const previousOverallLevel = getOverallLevel(profile);
@@ -71,8 +75,10 @@ export const applyAnswer = (
       ...profile.topicXp,
       [topic]: profile.topicXp[topic] + awardedPoints
     },
-    recentQuestionIds: [question.id, ...(profile.recentQuestionIds ?? [])].slice(0, 20),
-    answeredQuestionIds: Array.from(new Set([question.id, ...(profile.answeredQuestionIds ?? [])])).slice(0, 2000)
+    recentQuestionIds: [question.id, ...(profile.recentQuestionIds ?? [])].slice(0, 120),
+    answeredQuestionIds: Array.from(new Set([question.id, ...(profile.answeredQuestionIds ?? [])])).slice(0, 8000),
+    recentQuestionFingerprints: [questionFingerprint, ...(profile.recentQuestionFingerprints ?? [])].slice(0, 500),
+    answeredQuestionFingerprints: Array.from(new Set([questionFingerprint, ...(profile.answeredQuestionFingerprints ?? [])])).slice(0, 20000)
   };
 
   const computedTopicLevel = Math.min(

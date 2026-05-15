@@ -90,6 +90,21 @@ h1 { font-size: clamp(2rem, 4vw, 3.8rem); margin-bottom: 12px; }
 }
 .profileCard.selected { outline: 2px solid var(--accent); transform: translateY(-1px); }
 
+
+.quickProgressCard {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255, 203, 71, 0.20), rgba(126, 231, 255, 0.14), rgba(255, 134, 210, 0.12));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.quickProgressCard strong, .quickProgressCard span { display: block; }
+.quickProgressCard span { color: var(--muted); margin-top: 4px; }
+
 .profileAvatar {
   width: 64px;
   height: 64px;

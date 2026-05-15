@@ -35,6 +35,8 @@ export type LearnerProfile = {
   boosterEndsAt: number | null;
   recentQuestionIds: string[];
   answeredQuestionIds: string[];
+  recentQuestionFingerprints: string[];
+  answeredQuestionFingerprints: string[];
   topicLevel: Record<TopicId, number>;
   topicXp: Record<TopicId, number>;
   achievements: string[];

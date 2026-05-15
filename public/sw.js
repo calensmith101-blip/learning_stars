@@ -1,22 +1,19 @@
-const CACHE = "family-learning-stars-v2";
-const ASSETS = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/lambo.jpg"];
+const CACHE_NAME = "family-learning-stars-v4";
+const ASSETS = ["/", "/manifest.webmanifest", "/manifest.json", "/icon-192.png", "/icon-512.png", "/screenshot-mobile.png", "/screenshot-wide.png", "/lambo.jpg"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
-  );
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))).then(() => self.clients.claim()));
 });
 
 self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-      const cloned = response.clone();
-      caches.open(CACHE).then((cache) => cache.put(event.request, cloned));
-      return response;
-    }).catch(() => caches.match("/")))
-  );
+  if (event.request.method !== "GET") return;
+  event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
+    const copy = response.clone();
+    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+    return response;
+  }).catch(() => caches.match("/"))));
 });
