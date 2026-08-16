@@ -11,6 +11,15 @@ type Screen = "home" | "topics" | "quiz" | "progress" | "settings" | "quest";
 
 type Toast = { title: string; body: string; kind: "good" | "star" | "level" | "treasure" } | null;
 
+type AnswerFeedback = {
+  selectedIndex: number;
+  correct: boolean;
+  earnedPoints: number;
+  profile: LearnerProfile;
+  title: string;
+  explanation: string;
+} | null;
+
 const interactionName: Record<Question["interaction"], string> = {
   choose: "Pick one",
   fillBlank: "Fill the blank",
@@ -39,6 +48,7 @@ export default function App() {
   const [question, setQuestion] = useState<Question | null>(null);
   const [toast, setToast] = useState<Toast>(null);
   const [questMode, setQuestMode] = useState(false);
+  const [answerFeedback, setAnswerFeedback] = useState<AnswerFeedback>(null);
 
   useEffect(() => setState(loadState()), []);
   useEffect(() => saveState(state), [state]);
@@ -64,11 +74,15 @@ export default function App() {
 
   const chooseTopic = (topicId: TopicId) => {
     setQuestMode(false);
+    setAnswerFeedback(null);
     setState(current => ({ ...current, activeTopicId: topicId }));
     setScreen("quiz");
   };
 
-  const nextQuestion = (p = profile, topicId = state.activeTopicId, offset = 0) => setQuestion(pickNextQuestion(p, topicId, offset));
+  const nextQuestion = (p = profile, topicId = state.activeTopicId, offset = 0) => {
+    setAnswerFeedback(null);
+    setQuestion(pickNextQuestion(p, topicId, offset));
+  };
 
   const skipQuestion = () => {
     if (!question || !profile) return;
@@ -78,7 +92,7 @@ export default function App() {
   };
 
   const answer = (index: number) => {
-    if (!question || !profile) return;
+    if (!question || !profile || answerFeedback) return;
     const outcome = applyAnswer(profile, state.activeTopicId, question, index);
     let next = outcome.profile;
     if (questMode && outcome.correct) {
@@ -94,13 +108,26 @@ export default function App() {
       setToast({ title: outcome.correct ? "Nice work!" : "Good try", body: outcome.message, kind: outcome.correct ? "good" : "good" });
     }
     updateProfile(profile.id, () => next);
-    nextQuestion(next, state.activeTopicId, outcome.correct ? 7 : 13);
+    setAnswerFeedback({
+      selectedIndex: index,
+      correct: outcome.correct,
+      earnedPoints: outcome.earnedPoints,
+      profile: next,
+      title: outcome.correct ? (next.streak >= 3 ? `${next.streak} in a row!` : "Brilliant work!") : "Good thinking!",
+      explanation: question.explanation
+    });
+  };
+
+  const continueQuestion = () => {
+    if (!answerFeedback) return;
+    nextQuestion(answerFeedback.profile, state.activeTopicId, answerFeedback.correct ? 7 : 13);
   };
 
   const setProfilePatch = (id: string, patch: Partial<LearnerProfile>) => updateProfile(id, p => ({ ...p, ...patch }));
 
   const startQuest = () => {
     setQuestMode(true);
+    setAnswerFeedback(null);
     setState(current => ({ ...current, activeTopicId: "english" }));
     setScreen("quest");
     if (profile) setQuestion(pickNextQuestion(profile, "english", 777));
@@ -137,7 +164,7 @@ export default function App() {
       const next = defeatDavey(applyAnswer(profile, "english", question, index).profile);
       updateProfile(profile.id, () => next);
       setToast({ title: "Davey defeated!", body: "You won the spelling bee and completed the collection.", kind: "treasure" });
-      nextQuestion(next, "english", 333);
+      setAnswerFeedback({ selectedIndex: index, correct: true, earnedPoints: POINTS_PER_CORRECT, profile: next, title: "Davey defeated!", explanation: "You spelled it perfectly and completed the collection." });
       return;
     }
     answer(index);
@@ -195,7 +222,7 @@ export default function App() {
       </div>
     </section>}
 
-    {screen === "quiz" && <QuizPage topic={topic} profile={profile} question={question} onAnswer={answer} onSkip={skipQuestion} onBack={() => setScreen("topics")} />}
+    {screen === "quiz" && <QuizPage topic={topic} profile={profile} question={question} onAnswer={answer} onSkip={skipQuestion} onContinue={continueQuestion} feedback={answerFeedback} onBack={() => setScreen("topics")} />}
 
     {screen === "progress" && <ProgressPage state={state} profile={profile} />}
 
@@ -211,7 +238,7 @@ export default function App() {
         <button className="primaryBtn" disabled={!profile.quest.daveyUnlocked} onClick={battleDavey}>Battle Davey Jones</button>
       </div>
       {profile.quest.daveyDefeated && <div className="winBanner">🏆 Davey Jones is defeated. Collection complete!</div>}
-      <QuizBox profile={profile} question={question} onAnswer={answerDavey} onSkip={skipQuestion} />
+      <QuizBox profile={profile} question={question} onAnswer={answerDavey} onSkip={skipQuestion} onContinue={continueQuestion} feedback={answerFeedback} />
     </section>}
   </main>;
 }
@@ -228,21 +255,26 @@ function Info({ title, body }: { title: string; body: string }) {
   return <div className="info"><strong>{title}</strong><p>{body}</p></div>;
 }
 
-function QuizPage({ topic, profile, question, onAnswer, onSkip, onBack }: any) {
+function QuizPage({ topic, profile, question, onAnswer, onSkip, onContinue, feedback, onBack }: any) {
   return <section className="screenCard quizScreen">
     <div className="quizTop"><button className="ghost" onClick={onBack}>← Topics</button><div><p className="eyebrow">{topic.curriculumArea}</p><h2>{topic.icon} {topic.label}</h2></div><button className="ghost" onClick={onSkip}>Skip</button></div>
-    <QuizBox profile={profile} question={question} onAnswer={onAnswer} onSkip={onSkip} />
+    <QuizBox profile={profile} question={question} onAnswer={onAnswer} onSkip={onSkip} onContinue={onContinue} feedback={feedback} />
   </section>;
 }
 
-function QuizBox({ profile, question, onAnswer }: { profile: LearnerProfile; question: Question; onAnswer: (index: number) => void; onSkip?: () => void }) {
+function QuizBox({ profile, question, onAnswer, onContinue, feedback }: { profile: LearnerProfile; question: Question; onAnswer: (index: number) => void; onSkip?: () => void; onContinue: () => void; feedback: AnswerFeedback }) {
   return <div className={`quizBox ${question.interaction}`}>
     <div className="questionStats">
       <span>{ageLabel(profile.ageBand)}</span><span>Level {profile.level}</span><span>{question.strand}</span><span>{interactionName[question.interaction]}</span>
     </div>
     <h3>{question.prompt}</h3>
     <p className="hint">{hintFor(question.interaction)}</p>
-    <div className="answerGrid">{question.options.map((option, index) => <button key={`${question.key}-${option}`} className={`answerTile tile${index + 1}`} onClick={() => onAnswer(index)}>{option}</button>)}</div>
+    <div className="answerGrid">{question.options.map((option, index) => <button key={`${question.key}-${option}`} disabled={Boolean(feedback)} className={`answerTile tile${index + 1} ${feedback && index === question.answerIndex ? "correctAnswer" : ""} ${feedback && index === feedback.selectedIndex && !feedback.correct ? "wrongAnswer" : ""}`} onClick={() => onAnswer(index)}>{option}</button>)}</div>
+    {feedback && <div className={`answerReveal ${feedback.correct ? "correct" : "tryAgain"}`}>
+      <div><strong>{feedback.correct ? "Correct!" : `The answer is ${question.correct}.`}</strong><span>{feedback.explanation}</span></div>
+      <p>{feedback.correct ? `+${feedback.earnedPoints} points${feedback.profile.streak > 1 ? ` | ${feedback.profile.streak} answer streak` : ""}` : "Every question teaches you something new."}</p>
+      <button className="primaryBtn" onClick={onContinue}>Next challenge</button>
+    </div>}
   </div>;
 }
 

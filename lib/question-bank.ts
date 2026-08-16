@@ -41,6 +41,54 @@ const WORDS = {
   rhymes: [["cat", "hat"], ["dog", "frog"], ["sun", "fun"], ["star", "car"], ["cake", "snake"], ["light", "night"], ["blue", "true"]],
 };
 
+type AgeChallenge = Omit<Question, "answerIndex" | "id" | "key" | "difficulty">;
+
+const ageChallenges: Record<AgeBand, AgeChallenge[]> = {
+  "5-6": [
+    { topic: "science", prompt: "A plant needs water and sunlight to grow. What else does it need?", options: ["soil", "a television", "a toy", "a shoe"], correct: "soil", explanation: "Most plants grow their roots in soil, which helps hold water and nutrients.", strand: "Living things", interaction: "choose" },
+    { topic: "health", prompt: "Your body feels hot after running. What is a smart choice?", options: ["Drink water", "Put on a heavy coat", "Skip all rest", "Eat sand"], correct: "Drink water", explanation: "Water helps your body stay hydrated, especially after moving.", strand: "Healthy choices", interaction: "choose" },
+    { topic: "geography", prompt: "Which tool helps you find where places are?", options: ["a map", "a pillow", "a paintbrush", "a spoon"], correct: "a map", explanation: "A map is a drawing that shows where places are.", strand: "Maps and places", interaction: "wordTiles" },
+    { topic: "arts", prompt: "What makes music easier to clap along with?", options: ["a steady beat", "a silent colour", "a map key", "a calendar"], correct: "a steady beat", explanation: "A beat is the steady pulse we can hear and feel in music.", strand: "Music", interaction: "choose" }
+  ],
+  "7-8": [
+    { topic: "science", prompt: "A shadow changes size during the day because the Sun appears to move across the sky. What causes the change?", options: ["The direction of light", "The shadow gets hungry", "Clouds make new shadows", "The ground moves closer"], correct: "The direction of light", explanation: "As the light comes from a different direction, the shadow changes position and length.", strand: "Light and shadows", interaction: "choose" },
+    { topic: "history", prompt: "A photo, letter, or old object can help us learn about the past. What is it called?", options: ["a source", "a prediction", "a recipe", "a habitat"], correct: "a source", explanation: "Historical sources give us clues and evidence about people and events in the past.", strand: "Historical evidence", interaction: "wordTiles" },
+    { topic: "health", prompt: "A friend is upset after a mistake. Which response shows care?", options: ["Ask if they want help", "Laugh at them", "Tell everyone", "Ignore them forever"], correct: "Ask if they want help", explanation: "Kind support helps people feel safe and able to try again.", strand: "Relationships", interaction: "choose" },
+    { topic: "geography", prompt: "What is weather?", options: ["What the air is like today", "Every animal in a forest", "A map of the world", "A kind of rock"], correct: "What the air is like today", explanation: "Weather includes things like rain, wind, temperature, and clouds today.", strand: "Weather", interaction: "fillBlank" }
+  ],
+  "9-10": [
+    { topic: "science", prompt: "Which change can usually be reversed?", options: ["Ice melting", "Wood burning", "A cake baking", "Paper tearing"], correct: "Ice melting", explanation: "Melted water can freeze again, so melting is a reversible change.", strand: "Materials", interaction: "choose" },
+    { topic: "history", prompt: "Why do historians compare more than one source?", options: ["To check evidence and perspectives", "To make sources disappear", "To avoid asking questions", "To change the past"], correct: "To check evidence and perspectives", explanation: "Different sources can provide different viewpoints and help historians test claims.", strand: "Historical inquiry", interaction: "choose" },
+    { topic: "geography", prompt: "Which action helps conserve water at home?", options: ["Turn off the tap while brushing", "Leave taps running", "Water the driveway", "Take extra-long showers"], correct: "Turn off the tap while brushing", explanation: "Turning off a tap when it is not needed saves a valuable resource.", strand: "Sustainability", interaction: "choose" },
+    { topic: "arts", prompt: "An artist uses light colours beside dark colours to make an object stand out. What is this called?", options: ["contrast", "orbit", "migration", "nutrition"], correct: "contrast", explanation: "Contrast is a difference, such as light and dark, that makes visual features noticeable.", strand: "Visual arts", interaction: "wordTiles" }
+  ],
+  "11-13": [
+    { topic: "science", prompt: "In a fair test, why should you change only one variable at a time?", options: ["So you can link the result to that change", "So the experiment is noisier", "So every result is random", "So there is no evidence"], correct: "So you can link the result to that change", explanation: "Controlling variables makes an investigation more reliable and helps explain the results.", strand: "Scientific inquiry", interaction: "choose" },
+    { topic: "history", prompt: "A primary source is usually created during the time being studied. Which is a primary source for a 1969 event?", options: ["A newspaper printed in 1969", "A recent textbook", "A fictional movie", "A modern summary"], correct: "A newspaper printed in 1969", explanation: "A newspaper from that time is direct evidence from the period, though it can still have bias.", strand: "Sources and evidence", interaction: "choose" },
+    { topic: "health", prompt: "Which is a healthy way to handle a strong feeling?", options: ["Pause and talk to a trusted person", "Post it about someone online", "Break something", "Keep it secret forever"], correct: "Pause and talk to a trusted person", explanation: "Naming feelings, pausing, and asking for support are useful self-management skills.", strand: "Wellbeing", interaction: "choose" },
+    { topic: "geography", prompt: "Climate describes:", options: ["usual weather over many years", "today's temperature only", "a country border", "one storm"], correct: "usual weather over many years", explanation: "Weather is day to day; climate is the long-term pattern in a place.", strand: "Climate", interaction: "fillBlank" }
+  ],
+  "14-17": [
+    { topic: "science", prompt: "A correlation between two things does not always prove causation. Why?", options: ["Another factor may explain both", "Numbers are never useful", "Experiments have no purpose", "Correlation is a type of planet"], correct: "Another factor may explain both", explanation: "Two patterns can occur together because of a third variable or coincidence, so evidence needs careful evaluation.", strand: "Evidence and reasoning", interaction: "choose" },
+    { topic: "history", prompt: "Why should a historian consider whose voice is missing from a source collection?", options: ["Missing perspectives can change the interpretation", "It makes dates disappear", "Sources only have one meaning", "History is not evidence-based"], correct: "Missing perspectives can change the interpretation", explanation: "Power and access affect who creates and preserves sources, so gaps can shape a historical account.", strand: "Perspectives", interaction: "choose" },
+    { topic: "geography", prompt: "Which response is most likely to improve a community's long-term sustainability?", options: ["Reduce waste and protect local ecosystems", "Use resources as fast as possible", "Ignore water use", "Remove all green spaces"], correct: "Reduce waste and protect local ecosystems", explanation: "Sustainability balances current needs with protecting resources and environments for the future.", strand: "Sustainability", interaction: "choose" },
+    { topic: "health", prompt: "Consent in a healthy relationship should be:", options: ["freely given, informed, and ongoing", "assumed from silence", "pressured", "permanent after one yes"], correct: "freely given, informed, and ongoing", explanation: "People can set boundaries and change their minds; respect and clear communication matter.", strand: "Relationships", interaction: "choose" }
+  ],
+  adult: [
+    { topic: "science", prompt: "Which practice makes a scientific claim more trustworthy?", options: ["Use repeatable methods and review the evidence", "Rely on one personal story", "Ignore conflicting data", "Choose an answer first"], correct: "Use repeatable methods and review the evidence", explanation: "Reliable claims are supported by transparent methods, evidence, and opportunities for checking.", strand: "Scientific literacy", interaction: "choose" },
+    { topic: "history", prompt: "Historical interpretation is strongest when it:", options: ["uses evidence and acknowledges uncertainty", "treats one source as perfect", "ignores context", "avoids differing perspectives"], correct: "uses evidence and acknowledges uncertainty", explanation: "Good interpretations explain how evidence supports a conclusion and where limits remain.", strand: "Historical reasoning", interaction: "choose" },
+    { topic: "health", prompt: "A reliable health decision should be based primarily on:", options: ["credible evidence and qualified advice", "a viral headline alone", "a celebrity endorsement", "an anonymous comment"], correct: "credible evidence and qualified advice", explanation: "Health information should come from reputable evidence and appropriate professionals.", strand: "Health literacy", interaction: "choose" },
+    { topic: "geography", prompt: "Why are maps useful for making community decisions?", options: ["They reveal patterns across places", "They predict every event perfectly", "They replace local knowledge", "They remove all uncertainty"], correct: "They reveal patterns across places", explanation: "Mapped data can show patterns in services, hazards, land use, and environments.", strand: "Geospatial thinking", interaction: "choose" }
+  ]
+};
+
+const ageChallenge = (topic: TopicId, age: AgeBand, difficulty: number, seed: number) => {
+  const matches = ageChallenges[age].filter((challenge) => challenge.topic === topic);
+  if (!matches.length) return [];
+  const challenge = pick(matches, seed);
+  return [make({ ...challenge, difficulty })];
+};
+
 const english = (age: AgeBand, difficulty: number, seed: number): Question[] => {
   const nouns = difficulty < 3 ? WORDS.easyNouns : [...WORDS.easyNouns, ...WORDS.midNouns, ...WORDS.hardWords];
   const verbs = difficulty < 3 ? WORDS.easyVerbs : [...WORDS.easyVerbs, ...WORDS.midVerbs];
@@ -112,7 +160,7 @@ export const generateQuestionPool = (topic: TopicId, age: AgeBand, level: number
   for (let i = 0; i < wanted; i++) {
     const seed = hash(`${topic}-${age}-${level}-${difficulty}-${i}`);
     const batch = topic === "english" ? english(age, difficulty, seed) : topic === "maths" ? maths(age, difficulty, seed) : genericTopic(topic, age, difficulty, seed);
-    out.push(...batch);
+    out.push(...ageChallenge(topic, age, difficulty, seed), ...batch);
   }
   const map = new Map<string, Question>();
   out.forEach(q => { if (!map.has(q.key)) map.set(q.key, q); });
